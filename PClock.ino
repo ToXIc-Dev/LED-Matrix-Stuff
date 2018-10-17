@@ -2,6 +2,7 @@
 #include <ESP8266WiFi.h>          //ESP8266 Core WiFi Library (you most likely already have this in your sketch)
 #include <DNSServer.h>            //Local DNS Server used for redirecting all requests to the configuration portal
 #include <ESP8266WebServer.h>     //Local WebServer used to serve the configuration portal
+#include <ESP8266httpUpdate.h>
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
@@ -12,16 +13,22 @@
 
 // Settings
 #define logging 1
-String Rotation = "false";
+String Hostname = "PClock";
+bool AutoBright = true;
+bool Rotation = false;
 int Brightness = 255;
 String CityID = "";
 String APIKey = "";
 String Units = "Metric";
 String TempU = "C";
+String UPDSrvURL = "http://192.168.0.3:8080/espupdate/index.php";
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 3600;
+float LIGHT_THRESHOLD = 50; // This will vary depending on the resistor value used, I used an 100k
 // End of Settings
+
+String SWVer = "2.8";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 
@@ -66,73 +73,84 @@ uint16_t myYELLOW = display.color565(255, 255, 0);
 uint16_t myCYAN = display.color565(0, 255, 255);
 uint16_t myMAGENTA = display.color565(255, 0, 255);
 uint16_t myBLACK = display.color565(0, 0, 0);
+uint16_t myDarkBLUE = display.color565(1, 41, 112);
 
 uint16 myCOLORS[8] = {myRED, myGREEN, myBLUE, myWHITE, myYELLOW, myCYAN, myMAGENTA, myBLACK};
 
+uint16_t static CallIM[] = {
+0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
+0xFFFF, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0020 (32) pixels
+0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0x0000,   // 0x0030 (48) pixels
+0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000,   // 0x0040 (64) pixels
+0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0050 (80) pixels
+};
+
+uint16_t static NotiIM[] = {
+0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000,   // 0x0010 (16) pixels
+0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0020 (32) pixels
+0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0x0000,   // 0x0030 (48) pixels
+0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF,   // 0x0040 (64) pixels
+0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+};
+
 uint16_t static ClearIM[] = {
-0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0010 (16) pixels
-0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0,   // 0x0020 (32) pixels
-0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
-0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0010 (16) pixels
+  0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0,   // 0x0020 (32) pixels
+  0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
+  0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static RainIM[] = {
-0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
-0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
-0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF,   // 0x0030 (48) pixels
-0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
+  0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
+  0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF,   // 0x0030 (48) pixels
+  0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static ThunderstormIM[] = {
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0,   // 0x0010 (16) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0,   // 0x0020 (32) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
-0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0,   // 0x0010 (16) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0,   // 0x0020 (32) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
+  0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFA0, 0xFFA0, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static SnowIM[] = {
-0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000,   // 0x0010 (16) pixels
-0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
-0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000,   // 0x0030 (48) pixels
-0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000,   // 0x0010 (16) pixels
+  0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
+  0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000,   // 0x0030 (48) pixels
+  0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static DrizzleIM[] = {
-0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
-0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000,   // 0x0020 (32) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
-0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
+  0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000,   // 0x0020 (32) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
+  0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0000, 0x07FF, 0x0000, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static CloudsIM[] = {
-0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
-0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
-0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF,   // 0x0030 (48) pixels
-0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
-};
-
-uint16_t static Clouds2IM[] = {
-0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0010 (16) pixels
-0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFE0, 0xFFE0, 0xFFE0, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x07FF, 0xFFE0,   // 0x0020 (32) pixels
-0xFFE0, 0xFFE0, 0x0000, 0xFFE0, 0x0000, 0x07FF, 0x07FF, 0x07FF, 0x07FF, 0x07FF, 0xFFE0, 0x0000, 0xFFE0, 0x07FF, 0x07FF, 0x07FF,   // 0x0030 (48) pixels
-0x07FF, 0x07FF, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x07FF, 0x07FF, 0x07FF, 0x07FF, 0x0000, 0x0000, 0xFFE0, 0x0000, 0x0000,   // 0x0040 (64) pixels
-0x0000, 0x07FF, 0x07FF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
+  0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
+  0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF,   // 0x0030 (48) pixels
+  0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0x0000, 0x0000,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
 uint16_t static AtmosphereIM[] = {
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0000, 0x0000, 0x0638,   // 0x0010 (16) pixels
-0x0638, 0x0000, 0x0638, 0x0000, 0x0000, 0x0638, 0x0638, 0x0638, 0x0000, 0x0000, 0x0638, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0020 (32) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
-0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0638,   // 0x0040 (64) pixels
-0x0000, 0x0000, 0x0638, 0x0638, 0x0638, 0x0000, 0x0000, 0x0638, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0000, 0x0000, 0x0638,   // 0x0010 (16) pixels
+  0x0638, 0x0000, 0x0638, 0x0000, 0x0000, 0x0638, 0x0638, 0x0638, 0x0000, 0x0000, 0x0638, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0020 (32) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0030 (48) pixels
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0000, 0x0000, 0x0638, 0x0638, 0x0000, 0x0638,   // 0x0040 (64) pixels
+  0x0000, 0x0000, 0x0638, 0x0638, 0x0638, 0x0000, 0x0000, 0x0638, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // 0x0050 (80) pixels
 };
 
+String Status = "ON";
+char* Hostname2 = &Hostname[0];
 String Mode = "TDW";
 String timeNOW;
 String temperature;
@@ -144,6 +162,7 @@ int sunrise;
 
 unsigned long next_weather_update = 0;
 unsigned long rotationtm = 0;
+unsigned long this_time = millis();
 
 #ifdef ESP8266
 // ISR for display refresh
@@ -168,6 +187,7 @@ void IRAM_ATTR display_updater() {
 const char MAIN_page[] PROGMEM = R"=====(
   <!DOCTYPE html>
 <html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
     background: #2c3e50ff;
@@ -182,7 +202,69 @@ color: red;
 
 <h1 class="redt">PClock Control</h1>
 
-<div class="redt" >Brightness: <a id="sliderv"></a></div><br>
+<div class="redt" >
+Auto Brightness: <button type="button" onclick="loadDoc('autobri', 'true')">On</button> <button type="button" onclick="loadDoc('autobri', 'false')">Off</button>
+<br><br>
+Brightness: <a id="sliderv"></a><br>
+<input id="bright" type="range" min="1" max="255" value="128">
+
+<button type="button" onclick="loadDoc('bright', document.getElementById('bright').value)">Submit</button>
+<br><br>
+<button type="button" onclick="loadDoc('chmode', '1')">Change Mode</button>
+<br><br>
+Display: <button type="button" onclick="loadDoc('status', 'ON')">On</button> <button type="button" onclick="loadDoc('status', 'OFF')">Off</button> 
+<br><br><br>
+<button type="button" onclick="loadDoc('updw', '1')">Update Weather</button>
+<br><br><br>
+<button type="button" onclick="loadDoc('rst', '1')">Restart Clock</button>
+
+<p id="response"></p>
+</div>
+<script>
+var slider = document.getElementById('bright');
+slider.addEventListener('input', sliderChange);
+
+function sliderChange() {
+ document.getElementById("sliderv").innerHTML = this.value
+}
+
+function loadDoc(type, value) {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange=function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("response").innerHTML = "Response: " + this.responseText;
+    }
+  };
+  xhttp.open("GET", "/api?" + type +  "=" + value, true);
+  xhttp.send();
+}
+</script>
+
+</body>
+</html>
+)=====";
+
+const char Settings_page[] PROGMEM = R"=====(
+  <!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+    background: #2c3e50ff;
+}
+.redt {
+color: red;
+}
+
+</style>
+<title>PClock Control - Settings</title>
+<body>
+
+<h1 class="redt">PClock Control - Settings</h1>
+
+<div class="redt" >This page is a work in progress.</div>
+
+<!--<div class="redt" >Brightness: <a id="sliderv"></a></div><br>
 <input id="bright" type="range" min="1" max="255" value="128">
 
 <button type="button" onclick="loadDoc('bright', document.getElementById('bright').value)">Submit</button>
@@ -191,7 +273,7 @@ color: red;
 <br><br><br><br>
 <button type="button" onclick="loadDoc('rst', '1')">Restart Clock</button>
 
-<p class="redt" id="response"></p>
+<p class="redt" id="response"></p>-->
 
 <script>
 var slider = document.getElementById('bright');
@@ -205,7 +287,7 @@ function loadDoc(type, value) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange=function() {
     if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("response").innerHTML = this.responseText;
+      document.getElementById("response").innerHTML = "Response: " + this.responseText;
     }
   };
   xhttp.open("GET", "/api?" + type +  "=" + value, true);
@@ -220,6 +302,12 @@ function loadDoc(type, value) {
 void handleRoot() {
  //Serial.println("You called root page");
  String s = MAIN_page; //Read HTML contents
+ server.send(200, "text/html", s); //Send web page
+}
+
+void handleSettings() {
+ //Serial.println("You called root page");
+ String s = Settings_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
 }
 
@@ -359,8 +447,6 @@ void DisplayWeather()
         display.drawPixel(xx + x , yy + y, RainIM[counter]);
       } else if(condition == "Clouds"){
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
-      } else if(condition == "Clouds2"){
-        display.drawPixel(xx + x , yy + y, Clouds2IM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
       } else if(condition == "Atmosphere"){
@@ -400,16 +486,16 @@ void DisplayTimeDateWeather()
   display.print(dateDstring);
 
   // Draw date seperation line
-  display.drawPixel(22, 9, myYELLOW);
-  display.drawPixel(22, 10, myYELLOW);
-  display.drawPixel(22, 11, myYELLOW);
-  display.drawPixel(22, 12, myYELLOW);
-  display.drawPixel(22, 13, myYELLOW);
-  display.drawPixel(22, 14, myYELLOW);
-  display.drawPixel(22, 15, myYELLOW);
+  display.drawPixel(23, 9, myYELLOW);
+  display.drawPixel(23, 10, myYELLOW);
+  display.drawPixel(23, 11, myYELLOW);
+  display.drawPixel(23, 12, myYELLOW);
+  display.drawPixel(23, 13, myYELLOW);
+  display.drawPixel(23, 14, myYELLOW);
+  display.drawPixel(23, 15, myYELLOW);
 
   display.setTextColor(myYELLOW);
-  display.setCursor(24, 15);
+  display.setCursor(25, 15);
   display.print(dateMstring);
 
   //display.setTextColor(myCYAN);
@@ -431,8 +517,6 @@ void DisplayTimeDateWeather()
         display.drawPixel(xx + x , yy + y, RainIM[counter]);
       } else if(condition == "Clouds"){
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
-      } else if(condition == "Clouds2"){
-        display.drawPixel(xx + x , yy + y, Clouds2IM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
       } else if(condition == "Atmosphere"){
@@ -455,30 +539,30 @@ void DisplayTimeDateWeather()
 void DisplayBigClock()
 {
   display.setFont();
-  display.setTextColor(myWHITE);
+  display.setTextColor(myDarkBLUE);
   display.setCursor(1, 1);
   display.print(timestring);
 
   display.setFont(&TomThumb);
 
-  display.setTextColor(myYELLOW);
+  display.setTextColor(myDarkBLUE);
   display.setCursor(15, 15);
   display.print(dateDstring);
 
   // Draw date seperation line
-  display.drawPixel(22, 9, myYELLOW);
-  display.drawPixel(22, 10, myYELLOW);
-  display.drawPixel(22, 11, myYELLOW);
-  display.drawPixel(22, 12, myYELLOW);
-  display.drawPixel(22, 13, myYELLOW);
-  display.drawPixel(22, 14, myYELLOW);
-  display.drawPixel(22, 15, myYELLOW);
+  display.drawPixel(23, 9, myDarkBLUE);
+  display.drawPixel(23, 10, myDarkBLUE);
+  display.drawPixel(23, 11, myDarkBLUE);
+  display.drawPixel(23, 12, myDarkBLUE);
+  display.drawPixel(23, 13, myDarkBLUE);
+  display.drawPixel(23, 14, myDarkBLUE);
+  display.drawPixel(23, 15, myDarkBLUE);
 
-  display.setTextColor(myYELLOW);
-  display.setCursor(24, 15);
+  display.setTextColor(myDarkBLUE);
+  display.setCursor(25, 15);
   display.print(dateMstring);
 
-  display.setTextColor(myCYAN);
+  display.setTextColor(myDarkBLUE);
   display.setCursor(1, 15);
   display.print(temperature + TempU);
 }
@@ -494,18 +578,17 @@ void ChangeMode()
   } else if (Mode == "TDW")
   {
     Mode = "W";
-  } 
+  }
 }
-
 
 void ToggleRotation()
 {
-  if (Rotation == "true")
+  if (Rotation == true)
   {
-    Rotation = "false";
-  } else if (Rotation == "false")
+    Rotation = false;
+  } else if (Rotation == false)
   {
-    Rotation = "true";
+    Rotation = true;
   }
 }
 
@@ -519,6 +602,13 @@ if (server.arg("chmode")== ""){     //Parameter not found
 ChangeMode();
 
 message = "Mode Changed";
+}
+if (server.arg("updw")== ""){     //Parameter not found
+
+}else{     //Parameter found
+update_weather();
+
+message = "Weather Updated";
 }
 if (server.arg("rst")== ""){     //Parameter not found
 
@@ -538,6 +628,16 @@ Mode = server.arg("mode");
 message = "Mode changed to ";
 message += server.arg("mode");     //Gets the value of the query parameter
 }
+if (server.arg("status")== ""){     //Parameter not found
+
+//message = "Mode Argument not found";
+
+}else{     //Parameter found
+Status = server.arg("status");
+
+message = "Display turned ";
+message += server.arg("status");     //Gets the value of the query parameter
+}
 if (server.arg("bright")== ""){     //Parameter not found
 
 //message = "Mode Argument not found";
@@ -547,6 +647,13 @@ Brightness = server.arg("bright").toInt();
 
 message = "Brightness changed to ";
 message += server.arg("bright");     //Gets the value of the query parameter
+}
+if (server.arg("vers")== ""){     //Parameter not found
+
+//message = SWVer;     //Gets the value of the query parameter
+
+}else{     //Parameter found
+  message = SWVer;
 }
 if (server.arg("rotation")== ""){     //Parameter not found
 
@@ -559,6 +666,77 @@ ToggleRotation();
 message = "Rotation toggled ";
 message += Rotation;     //Gets the value of the query parameter
 }
+if (server.arg("autobri")== ""){     //Parameter not found
+
+//message = "Mode Argument not found";
+
+}else{     //Parameter found
+  if (server.arg("autobri") == "true")
+    AutoBright = true;
+  else if (server.arg("autobri") == "false")
+    AutoBright = false;
+
+message = "Auto Brightness state: ";
+message += server.arg("autobri");     //Gets the value of the query parameter
+}
+if (server.arg("noti")== ""){     //Parameter not found
+
+//message = "Mode Argument not found";
+
+}else{     //Parameter found
+  message = "Recieved";
+  if (server.arg("noti") == "other"){
+    display.clearDisplay();
+    display.setFont(&TomThumb);
+    display.setTextColor(myWHITE);
+    display.setCursor(15,9);
+    display.print("noti");
+    display.setCursor(2,15);
+    display.print("recieved");
+    
+  int imageHeight = 9;
+  int imageWidth = 9;
+  int counter = 0;
+  int x = 2;
+  int y = 0;
+  for (int yy = 0; yy < imageHeight; yy++)
+  {
+    for (int xx = 0; xx < imageWidth; xx++)
+    {
+    display.drawPixel(xx + x , yy + y, NotiIM[counter]);
+    counter++;
+    }
+  }
+    server.send(200, "text/plain", message);          //Returns the HTTP response
+    delay(10000);
+    }
+  else if (server.arg("noti") == "call") {
+    display.clearDisplay();
+    display.setFont(&TomThumb);
+    display.setTextColor(myWHITE);
+    display.setCursor(15,9);
+    display.print("call");
+    display.setCursor(3,15);
+    display.print("incoming");
+    
+  int imageHeight = 9;
+  int imageWidth = 9;
+  int counter = 0;
+  int x = 2;
+  int y = 0;
+  for (int yy = 0; yy < imageHeight; yy++)
+  {
+    for (int xx = 0; xx < imageWidth; xx++)
+    {
+    display.drawPixel(xx + x , yy + y, CallIM[counter]);
+    counter++;
+    }
+  }
+    server.send(200, "text/plain", message);          //Returns the HTTP response
+    delay(28000);
+  }
+}
+
 
 server.send(200, "text/plain", message);          //Returns the HTTP response
 }
@@ -566,9 +744,30 @@ server.send(200, "text/plain", message);          //Returns the HTTP response
 void setup()
 {
   Serial.begin(9600);
-  WiFi.hostname("PClock");
+  WiFi.hostname(Hostname2);
   WiFiManager wifiManager;
-  wifiManager.autoConnect("PClock");
+  wifiManager.autoConnect(Hostname2);
+
+  String SWVerString = "SW VER: ";
+  SWVerString += SWVer;
+  Serial.println(SWVerString);
+
+  t_httpUpdate_return ret = ESPhttpUpdate.update(UPDSrvURL, SWVer);
+
+    switch (ret) {
+      case HTTP_UPDATE_FAILED:
+        Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+        Serial.println();
+        break;
+
+      case HTTP_UPDATE_NO_UPDATES:
+        Serial.println("HTTP_UPDATE_NO_UPDATES");
+        break;
+
+      case HTTP_UPDATE_OK:
+        Serial.println("HTTP_UPDATE_OK");
+        break;
+   }
 
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -584,6 +783,7 @@ void setup()
   Serial.println("Time...");
 
   server.on("/", handleRoot);
+  server.on("/settings", handleSettings);
   server.onNotFound(handleNotFound);
   server.on("/api", handleSpecificArg);   //Associate the handler function to the path
 
@@ -611,6 +811,18 @@ void setup()
   delay(3000);
 }
 
+enum state {
+  OFF, COUNTDOWN, ON
+};
+
+state current_state;
+unsigned long countdownMs;
+
+boolean isLightAboveThreshhold() {
+  //Serial.print(analogRead(A0));
+  return analogRead(A0) > LIGHT_THRESHOLD;
+}
+
 void loop()
 {
   server.handleClient();    //Handling of incoming requests
@@ -619,21 +831,57 @@ void loop()
   
   LocalTimeDate();
   bool ret_code;
-  unsigned long this_time = millis();
   yield();
   // Update weather data every 10 minutes
   if (this_time > next_weather_update)
   {
-    ret_code = update_weather();
-    //if (ret_code)
+    update_weather();
     next_weather_update = this_time + 1800000; // Thirty Minutes
     //next_weather_update=this_time+10000; // Ten Seconds
-    //else
-    //next_weather_update=this_time+5000;
+  }
+  
+if (AutoBright) {
+ switch (current_state) {
+    case OFF:
+      if (isLightAboveThreshhold()) {
+        // do nothing;
+      }
+      else {
+        countdownMs = millis();
+        current_state = COUNTDOWN;
+      }
+      break;
+
+    case COUNTDOWN:
+      if (isLightAboveThreshhold()) {
+        // don't need to perform any action to stop counting down
+        current_state = OFF;
+      }
+      else if (millis() - countdownMs > 5000) {
+        Brightness = 1;
+        Mode = "BC";
+        //Serial.print("dark");
+        current_state = ON;
+      }
+      else {
+        // do nothing
+      }
+      break;
+
+    case ON:
+      if (isLightAboveThreshhold()) {
+        Brightness = 255;
+        Mode = "TDW";
+        //Serial.print("bright");
+        current_state = OFF;
+      }
+      else {
+        // do nothing
+      }      break;
+  } 
   }
 
-
-  if (Rotation == "true")
+  if (Rotation)
   {
     if (this_time > rotationtm)
   {
@@ -648,7 +896,7 @@ void loop()
     
   }
 
-
+if (Status == "ON"){
   if (Mode == "TDW")
   {
     display.clearDisplay();
@@ -667,5 +915,8 @@ void loop()
     display.setCursor(1,8);
     display.print("No Mode");
   }
+} else {
+display.clearDisplay();
+}
   delay(1000);
 }
