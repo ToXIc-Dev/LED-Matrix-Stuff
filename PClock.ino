@@ -15,6 +15,9 @@
 #define logging 1
 String Hostname = "PClock";
 bool AutoBright = true;
+float LightLTimeout = 10000;
+String AutoBrightMode = "BC";
+float AutoBrightBrightness = 30;
 bool Rotation = false;
 int Brightness = 255;
 String CityID = "";
@@ -28,7 +31,7 @@ const int   daylightOffset_sec = 3600;
 float LIGHT_THRESHOLD = 50; // This will vary depending on the resistor value used, I used an 100k
 // End of Settings
 
-String SWVer = "2.8";
+String SWVer = "3.1";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 
@@ -449,7 +452,7 @@ void DisplayWeather()
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
-      } else if(condition == "Atmosphere"){
+      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist"){
         display.drawPixel(xx + x , yy + y, AtmosphereIM[counter]);
       } else if(condition == "Snow"){
         display.drawPixel(xx + x , yy + y, SnowIM[counter]);
@@ -519,7 +522,7 @@ void DisplayTimeDateWeather()
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
-      } else if(condition == "Atmosphere"){
+      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist"){
         display.drawPixel(xx + x , yy + y, AtmosphereIM[counter]);
       } else if(condition == "Snow"){
         display.drawPixel(xx + x , yy + y, SnowIM[counter]);
@@ -857,9 +860,9 @@ if (AutoBright) {
         // don't need to perform any action to stop counting down
         current_state = OFF;
       }
-      else if (millis() - countdownMs > 5000) {
-        Brightness = 1;
-        Mode = "BC";
+      else if (millis() - countdownMs > LightLTimeout) {
+        Brightness = AutoBrightBrightness;
+        Mode = AutoBrightMode;
         //Serial.print("dark");
         current_state = ON;
       }
