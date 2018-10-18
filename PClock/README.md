@@ -15,4 +15,8 @@ You will need an [OpenWeatherMap](https://openweathermap.org) API Key.
 
 ## OTA Update
 
-The sketch can be updated over WiFi by running a web server and setting the address in the settings and then exporting your compiled binaries from the IDE and putting them on the web server with the name pclock-1.0.ino (the 1.0 being a version number higher than the current one on the ESP, Remember to change the version number in the sketch too, otherwise it will go into a update loop.)
+The sketch can be updated over WiFi
+
+1. Run a web server and put the espupdate folder on it and edit the index.php with your ESP's MAC Address
+2. Set the URL in the settings
+3. Export your compiled binaries from the Arduino IDE and put them on the web server in the bin folder with the name pclock-1.0.ino (the 1.0 being a version number higher than the current one on the ESP, Remember to change the version number in the sketch too, otherwise it will go into a update loop.)
