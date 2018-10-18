@@ -13,25 +13,28 @@
 
 // Settings
 #define logging 1
-String Hostname = "PClock";
-bool AutoBright = true;
-float LightLTimeout = 10000;
-String AutoBrightMode = "BC";
-float AutoBrightBrightness = 30;
-bool Rotation = false;
-int Brightness = 255;
+String Hostname = "PClock"; // The network name
+String UPDSrvURL = "http://192.168.0.3:8080/espupdate/index.php"; // This is used to update the sketch over the wifi, see readme for info
+bool Rotation = false; // This function will switch between modes every 20 seconds
+int Brightness = 255; // The default brightness
+// Date/Time Settings
+const char* ntpServer = "pool.ntp.org"; // Should probably leave this alone and edit the settings below
+const long  gmtOffset_sec = 0;
+const int   daylightOffset_sec = 3600;
+// Weather settings - Uses Openweathermap API
 String CityID = "";
 String APIKey = "";
 String Units = "Metric";
 String TempU = "C";
-String UPDSrvURL = "http://192.168.0.3:8080/espupdate/index.php";
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 0;
-const int   daylightOffset_sec = 3600;
+// AutoBrightness Settings
+bool AutoBright = true; // Connect a Photo Transistor/Photocell to the A0 pin to use this, See here: https://learn.adafruit.com/photocells/using-a-photocell
+float LightLTimeout = 10000; // How long to wait for the light level to stay below the threshold
 float LIGHT_THRESHOLD = 50; // This will vary depending on the resistor value used, I used an 100k
+float AutoBrightBrightness = 30; // The brightness % to change to when auto brightness has been triggered
+String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "3.1";
+String SWVer = "3.2";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 
@@ -164,8 +167,8 @@ int sunset;
 int sunrise;
 
 unsigned long next_weather_update = 0;
+unsigned long loopdelay = 0;
 unsigned long rotationtm = 0;
-unsigned long this_time = millis();
 
 #ifdef ESP8266
 // ISR for display refresh
@@ -452,7 +455,7 @@ void DisplayWeather()
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
-      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist"){
+      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist" or condition == "Haze"){
         display.drawPixel(xx + x , yy + y, AtmosphereIM[counter]);
       } else if(condition == "Snow"){
         display.drawPixel(xx + x , yy + y, SnowIM[counter]);
@@ -522,7 +525,7 @@ void DisplayTimeDateWeather()
         display.drawPixel(xx + x , yy + y, CloudsIM[counter]);
       } else if(condition == "Drizzle"){
         display.drawPixel(xx + x , yy + y, DrizzleIM[counter]);
-      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist"){
+      } else if(condition == "Atmosphere" or condition == "Fog" or condition == "Mist" or condition == "Haze"){
         display.drawPixel(xx + x , yy + y, AtmosphereIM[counter]);
       } else if(condition == "Snow"){
         display.drawPixel(xx + x , yy + y, SnowIM[counter]);
@@ -774,8 +777,6 @@ void setup()
 
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  unsigned timeout = 5000;
-  unsigned start = millis();
   while (!time(nullptr))
   {
     Serial.print(".");
@@ -830,17 +831,19 @@ void loop()
 {
   server.handleClient();    //Handling of incoming requests
 
+  if (millis() > loopdelay)
+  {
+    
   display.setBrightness(Brightness);
   
   LocalTimeDate();
-  bool ret_code;
-  yield();
+  
   // Update weather data every 10 minutes
-  if (this_time > next_weather_update)
+  if (millis() > next_weather_update)
   {
     update_weather();
-    next_weather_update = this_time + 1800000; // Thirty Minutes
-    //next_weather_update=this_time+10000; // Ten Seconds
+    next_weather_update = millis() + 1800000; // Thirty Minutes
+    //next_weather_update = millis() + 10000; // Ten Seconds
   }
   
 if (AutoBright) {
@@ -886,14 +889,10 @@ if (AutoBright) {
 
   if (Rotation)
   {
-    if (this_time > rotationtm)
+    if (millis() > rotationtm)
   {
     ChangeMode();
-    //if (ret_code)
-    //rotationtm = this_time + 600000; // Ten Minutes
-    rotationtm=this_time+20000; // Twenty Seconds
-    //else
-    //next_weather_update=this_time+5000;
+    rotationtm = millis() + 20000; // Twenty Seconds
   }
   } else {
     
@@ -921,5 +920,7 @@ if (Status == "ON"){
 } else {
 display.clearDisplay();
 }
-  delay(1000);
+ // delay(1000);
+ loopdelay = millis() + 1000;
+  }
 }
