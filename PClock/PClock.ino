@@ -34,9 +34,10 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "3.2";
+String SWVer = "1.0";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
+// I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
 
 #ifdef ESP32
 #define P_LAT 22
@@ -340,7 +341,7 @@ bool update_weather()
 {
 
   HTTPClient http;  //Object of class HTTPClient
-  http.begin("https://api.openweathermap.org/data/2.5/weather?id=" + CityID + "&appid=" + APIKey + "&units=" + Units);
+  http.begin("http://api.openweathermap.org/data/2.5/weather?id=" + CityID + "&appid=" + APIKey + "&units=" + Units);
   int httpCode = http.GET();
   //Check the returning code
   if (httpCode > 0) {
