@@ -1,4 +1,12 @@
-# PClock Readme - WIP
+# PClock - WIP
+
+### Features
+* NTP Time/Date
+* Weather (Temperature, Condition, Humidity, Wind speed)
+* Web interface with API (Port 82)
+* [Phone Integration](#phone-integration) (Show when notification received or call incoming)
+* Auto Brightness (Using phototransistor)
+* [OTA Update](#ota-update)
 
 ##### Libraries Used
 * [PxMatrix](https://github.com/2dom/PxMatrix)
@@ -12,6 +20,79 @@ See the PxMatrix Readme on how to wire the panel up and you might need to change
 Edit the settings in the .ino file.
 
 You will need an [OpenWeatherMap](https://openweathermap.org) API Key.
+
+## Phone Integration
+
+So the clock has some phone integration by being able to notify you when you get a notification or have a call incoming on your phone.
+
+To use this you will need to use something like Tasker to send a GET request to the API (See the notification part of the API below) when a notification is received or a call is incoming, relatively simple to setup.
+
+## API
+
+### Change Mode
+
+<code>/api?chmode=1</code>
+
+Can also use <code>/api?mode=</code> and then the mode you want to change to
+
+**Returns**: Mode Changed
+
+### Update Weather
+
+<code>/api?updw=1</code>
+
+**Returns**: Weather Updated
+
+### Restart
+
+<code>/api?rst=1</code>
+
+**Returns**: Restarting
+
+### Status
+
+Turn the display ON or OFF
+
+<code>/api?status=</code>
+
+**Returns**: Display turned ON/OFF
+
+### Brightness
+
+<code>/api?bright=</code>
+
+**Returns**: Brightness changed to
+
+### Vers
+
+<code>/api?vers=1</code>
+
+Shows the software version number
+
+### Notification
+
+Shows noti received on the clock for 10 seconds
+
+<code>/api?noti=other</code>
+
+**Returns**: Received
+
+### Notification - Call
+
+Shows call incoming on the clock for 28 seconds - The time it takes a phone (well mine atleast) to go to voice mail
+
+<code>/api?noti=call</code>
+
+**Returns**: Received
+
+### Rotation
+
+An unused (by me) function to change between the mode (might not work properly)
+
+<code>/api?rotation=1</code>
+
+**Returns**: Rotation toggled
+
 
 ## OTA Update
 

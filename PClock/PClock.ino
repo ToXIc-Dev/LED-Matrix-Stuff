@@ -340,7 +340,7 @@ bool update_weather()
 {
 
   HTTPClient http;  //Object of class HTTPClient
-  http.begin("http://api.openweathermap.org/data/2.5/weather?id=" + CityID + "&appid=" + APIKey + "&units=" + Units);
+  http.begin("https://api.openweathermap.org/data/2.5/weather?id=" + CityID + "&appid=" + APIKey + "&units=" + Units);
   int httpCode = http.GET();
   //Check the returning code
   if (httpCode > 0) {
@@ -690,7 +690,7 @@ if (server.arg("noti")== ""){     //Parameter not found
 //message = "Mode Argument not found";
 
 }else{     //Parameter found
-  message = "Recieved";
+  message = "Received";
   if (server.arg("noti") == "other"){
     display.clearDisplay();
     display.setFont(&TomThumb);
@@ -698,7 +698,7 @@ if (server.arg("noti")== ""){     //Parameter not found
     display.setCursor(15,9);
     display.print("noti");
     display.setCursor(2,15);
-    display.print("recieved");
+    display.print("received");
     
   int imageHeight = 9;
   int imageWidth = 9;

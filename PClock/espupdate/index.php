@@ -1,6 +1,17 @@
 <?PHP
 header('Content-type: text/plain; charset=utf8', true);
 
+$compartment = "pclock-";
+
+$files = glob("./bin/$compartment*.bin");
+
+if (count($files) > 0)
+foreach ($files as $file)
+ {
+    $info = pathinfo($file);
+	$filenm =  $info["basename"];
+ }
+
 $db = array(
     "" => $filenm // Put your ESP's MAC Address in between the ""
 );
@@ -22,17 +33,6 @@ if(!isset($headers['user-agent']) OR $headers['user-agent'] != "ESP8266-http-Upd
     echo "Only for ESP8266 updater!\n";
     exit();
 }
-
-$compartment = "pclock-";
-
-$files = glob("./bin/$compartment*.bin");
-
-if (count($files) > 0)
-foreach ($files as $file)
- {
-    $info = pathinfo($file);
-	$filenm =  $info["basename"];
- }
 
 if (isset($db[$headers['x-esp8266-sta-mac']]))
 {
