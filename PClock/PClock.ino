@@ -34,7 +34,7 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.1";
+String SWVer = "1.2";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -80,7 +80,6 @@ uint16_t myYELLOW = display.color565(255, 255, 0);
 uint16_t myCYAN = display.color565(0, 255, 255);
 uint16_t myMAGENTA = display.color565(255, 0, 255);
 uint16_t myBLACK = display.color565(0, 0, 0);
-uint16_t myDarkBLUE = display.color565(1, 41, 112);
 
 uint16_t static CallIM[] = {
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
@@ -168,6 +167,13 @@ int sunrise;
 unsigned long next_weather_update = 0;
 unsigned long loopdelay = 0;
 unsigned long rotationtm = 0;
+
+enum state {
+  OFF, COUNTDOWN, ON
+};
+
+state current_state;
+unsigned long countdownMs;
 
 #ifdef ESP8266
 // ISR for display refresh
@@ -545,32 +551,32 @@ void DisplayTimeDateWeather()
 void DisplayBigClock()
 {
   display.setFont();
-  display.setTextColor(myDarkBLUE);
-  display.setCursor(1, 1);
+  display.setTextColor(myWHITE);
+  display.setCursor(1, 4);
   display.print(timestring);
 
-  display.setFont(&TomThumb);
+//  display.setFont(&TomThumb);
 
-  display.setTextColor(myDarkBLUE);
-  display.setCursor(15, 15);
-  display.print(dateDstring);
+//  display.setTextColor(myWHITE);
+//  display.setCursor(15, 15);
+//  display.print(dateDstring);
 
   // Draw date seperation line
-  display.drawPixel(23, 9, myDarkBLUE);
-  display.drawPixel(23, 10, myDarkBLUE);
-  display.drawPixel(23, 11, myDarkBLUE);
-  display.drawPixel(23, 12, myDarkBLUE);
-  display.drawPixel(23, 13, myDarkBLUE);
-  display.drawPixel(23, 14, myDarkBLUE);
-  display.drawPixel(23, 15, myDarkBLUE);
+//  display.drawPixel(23, 9, myWHITE);
+//  display.drawPixel(23, 10, myWHITE);
+//  display.drawPixel(23, 11, myWHITE);
+//  display.drawPixel(23, 12, myWHITE);
+//  display.drawPixel(23, 13, myWHITE);
+//  display.drawPixel(23, 14, myWHITE);
+//  display.drawPixel(23, 15, myWHITE);
 
-  display.setTextColor(myDarkBLUE);
-  display.setCursor(25, 15);
-  display.print(dateMstring);
+//  display.setTextColor(myWHITE);
+//  display.setCursor(25, 15);
+//  display.print(dateMstring);
 
-  display.setTextColor(myDarkBLUE);
-  display.setCursor(1, 15);
-  display.print(temperature + TempU);
+//  display.setTextColor(myWHITE);
+//  display.setCursor(1, 15);
+//  display.print(temperature + TempU);
 }
 
 void ChangeMode()
@@ -691,7 +697,7 @@ if (server.arg("noti")== ""){     //Parameter not found
 
 }else{     //Parameter found
   message = "Received";
-  if (Status == "ON"){
+  if (Status == "ON" && current_state != ON){
   if (server.arg("noti") == "other"){
     display.clearDisplay();
     display.setFont(&TomThumb);
@@ -816,13 +822,6 @@ void setup()
   //yield();
   delay(3000);
 }
-
-enum state {
-  OFF, COUNTDOWN, ON
-};
-
-state current_state;
-unsigned long countdownMs;
 
 boolean isLightAboveThreshhold() {
   //Serial.print(analogRead(A0));
