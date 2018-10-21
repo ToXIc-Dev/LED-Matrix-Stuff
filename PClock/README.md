@@ -1,4 +1,5 @@
 # PClock - WIP
+Note: The ways some of the functions are achieved may not the best way to do it, I am not very experienced with Arduino. (If you can improve it, please let me know)
 
 ### Features
 * NTP Time/Date
@@ -63,7 +64,7 @@ Turn the display ON or OFF
 
 **Returns**: Brightness changed to
 
-### Vers
+### Version
 
 <code>/api?vers=1</code>
 
