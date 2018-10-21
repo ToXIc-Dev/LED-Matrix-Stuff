@@ -34,7 +34,7 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.0";
+String SWVer = "1.1";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -81,8 +81,6 @@ uint16_t myCYAN = display.color565(0, 255, 255);
 uint16_t myMAGENTA = display.color565(255, 0, 255);
 uint16_t myBLACK = display.color565(0, 0, 0);
 uint16_t myDarkBLUE = display.color565(1, 41, 112);
-
-uint16 myCOLORS[8] = {myRED, myGREEN, myBLUE, myWHITE, myYELLOW, myCYAN, myMAGENTA, myBLACK};
 
 uint16_t static CallIM[] = {
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xFFFF, 0x0000, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
@@ -251,6 +249,7 @@ function loadDoc(type, value) {
 </html>
 )=====";
 
+// Will eventually allow settings to be changed on the web interface
 const char Settings_page[] PROGMEM = R"=====(
   <!DOCTYPE html>
 <html>
@@ -692,6 +691,7 @@ if (server.arg("noti")== ""){     //Parameter not found
 
 }else{     //Parameter found
   message = "Received";
+  if (Status == "ON"){
   if (server.arg("noti") == "other"){
     display.clearDisplay();
     display.setFont(&TomThumb);
@@ -741,6 +741,7 @@ if (server.arg("noti")== ""){     //Parameter not found
   }
     server.send(200, "text/plain", message);          //Returns the HTTP response
     delay(28000);
+  }
   }
 }
 
@@ -921,7 +922,6 @@ if (Status == "ON"){
 } else {
 display.clearDisplay();
 }
- // delay(1000);
  loopdelay = millis() + 1000;
   }
 }
