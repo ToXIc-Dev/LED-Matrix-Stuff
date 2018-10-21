@@ -1,5 +1,5 @@
 # PClock - WIP
-Note: The ways some of the functions are achieved may not the best way to do it, I am not very experienced with Arduino. (If you can improve it, please let me know)
+Note: The ways some of the functions are achieved may not be the best way to do it, I am not very experienced with Arduino. (If you can improve it, please let me know)
 
 ### Features
 * NTP Time/Date
@@ -21,6 +21,11 @@ See the PxMatrix Readme on how to wire the panel up and you might need to change
 Edit the settings in the .ino file.
 
 You will need an [OpenWeatherMap](https://openweathermap.org) API Key.
+
+### First Boot
+
+* Upon first boot the device will create an access point, connect to that and go to htttp://192.168.4.1 and connect it to the WiFi network.
+* The device will then restsrt and flash the end of the IP on the screen, you can use that to go to the clock's web interface.
 
 ## Phone Integration
 
