@@ -25,7 +25,7 @@ You will need an [OpenWeatherMap](https://openweathermap.org) API Key.
 ### First Boot
 
 * Upon first boot the device will create an access point, connect to that and go to htttp://192.168.4.1 and connect it to the WiFi network.
-* The device will then restsrt and flash the end of the IP on the screen, you can use that to go to the clock's web interface.
+* The device will then restart and flash the end of the IP on the screen, you can use that to go to the clock's web interface.
 
 ## Phone Integration
 
