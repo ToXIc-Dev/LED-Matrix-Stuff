@@ -34,7 +34,7 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.2";
+String SWVer = "1.3";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -201,15 +201,18 @@ const char MAIN_page[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
-    background: #2c3e50ff;
+  background: #2c3e50ff;
 }
 .redt {
-color: red;
+  color: red;
 }
-
+.center {
+  text-align: center;
+}
 </style>
 <title>PClock Control</title>
-<body>
+<body onload="BrightSL()">
+<div class="center">
 
 <h1 class="redt">PClock Control</h1>
 
@@ -231,12 +234,13 @@ Display: <button type="button" onclick="loadDoc('status', 'ON')">On</button> <bu
 
 <p id="response"></p>
 </div>
+</div>
 <script>
 var slider = document.getElementById('bright');
 slider.addEventListener('input', sliderChange);
 
-function sliderChange() {
- document.getElementById("sliderv").innerHTML = this.value
+function BrightSL() {
+ document.getElementById("sliderv").innerHTML = document.getElementById("bright").value;
 }
 
 function loadDoc(type, value) {
@@ -262,16 +266,18 @@ const char Settings_page[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
-    background: #2c3e50ff;
+  background: #2c3e50ff;
 }
 .redt {
-color: red;
+  color: red;
 }
-
+.center {
+  text-align: center;
+}
 </style>
 <title>PClock Control - Settings</title>
 <body>
-
+<div class="center">
 <h1 class="redt">PClock Control - Settings</h1>
 
 <div class="redt" >This page is a work in progress.</div>
@@ -287,6 +293,7 @@ color: red;
 
 <p class="redt" id="response"></p>-->
 
+</div>
 <script>
 var slider = document.getElementById('bright');
 slider.addEventListener('input', sliderChange);
