@@ -34,7 +34,7 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.3";
+String SWVer = "1.4";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -237,7 +237,7 @@ Display: <button type="button" onclick="loadDoc('status', 'ON')">On</button> <bu
 </div>
 <script>
 var slider = document.getElementById('bright');
-slider.addEventListener('input', sliderChange);
+slider.addEventListener('input', BrightSL);
 
 function BrightSL() {
  document.getElementById("sliderv").innerHTML = document.getElementById("bright").value;
@@ -282,26 +282,8 @@ body {
 
 <div class="redt" >This page is a work in progress.</div>
 
-<!--<div class="redt" >Brightness: <a id="sliderv"></a></div><br>
-<input id="bright" type="range" min="1" max="255" value="128">
-
-<button type="button" onclick="loadDoc('bright', document.getElementById('bright').value)">Submit</button>
-<br><br>
-<button type="button" onclick="loadDoc('chmode', '1')">Change Mode</button>
-<br><br><br><br>
-<button type="button" onclick="loadDoc('rst', '1')">Restart Clock</button>
-
-<p class="redt" id="response"></p>-->
-
 </div>
 <script>
-var slider = document.getElementById('bright');
-slider.addEventListener('input', sliderChange);
-
-function sliderChange() {
- document.getElementById("sliderv").innerHTML = this.value
-}
-
 function loadDoc(type, value) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange=function() {
