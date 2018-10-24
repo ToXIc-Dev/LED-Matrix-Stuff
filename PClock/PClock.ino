@@ -34,7 +34,7 @@ float AutoBrightBrightness = 30; // The brightness % to change to when auto brig
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.4";
+String SWVer = "1.5";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -676,6 +676,7 @@ if (server.arg("autobri")== ""){     //Parameter not found
     AutoBright = true;
   else if (server.arg("autobri") == "false")
     AutoBright = false;
+    current_state = OFF;
 
 message = "Auto Brightness state: ";
 message += server.arg("autobri");     //Gets the value of the query parameter
