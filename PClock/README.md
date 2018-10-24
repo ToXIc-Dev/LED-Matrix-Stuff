@@ -9,6 +9,8 @@ Note: The ways some of the functions are achieved may not be the best way to do 
 * Auto Brightness (Using phototransistor)
 * [OTA Update](#ota-update)
 
+### [Screenshots](https://imgur.com/a/QIhXM0w)
+
 ##### Libraries Used
 * [PxMatrix](https://github.com/2dom/PxMatrix)
 * [WiFiManager](https://github.com/tzapu/WiFiManager)
