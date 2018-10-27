@@ -30,11 +30,12 @@ String TempU = "C";
 bool AutoBright = true; // Connect a Photo Transistor/Photocell to the A0 pin to use this, See here: https://learn.adafruit.com/photocells/using-a-photocell
 float LightLTimeout = 10000; // How long to wait for the light level to stay below the threshold
 float LIGHT_THRESHOLD = 50; // This will vary depending on the resistor value used, I used an 100k
+String AutoBrightTodo = "DO"; // CM (Change mode and lower brightness) or DO (Display off), If you choose display off ignore the below settings
 float AutoBrightBrightness = 30; // The brightness % to change to when auto brightness has been triggered
 String AutoBrightMode = "BC"; // The mode to change to when auto brightness has been triggered
 // End of Settings
 
-String SWVer = "1.5";
+String SWVer = "1.6";
 
 ESP8266WebServer server(82);   //Web server object. Will be listening in port 82
 // I used port 82 as its not the normal web port so makes it a tiny big more secure (from others on your network), obviously actual authentication would be better
@@ -259,56 +260,9 @@ function loadDoc(type, value) {
 </html>
 )=====";
 
-// Will eventually allow settings to be changed on the web interface
-const char Settings_page[] PROGMEM = R"=====(
-  <!DOCTYPE html>
-<html>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body {
-  background: #2c3e50ff;
-}
-.redt {
-  color: red;
-}
-.center {
-  text-align: center;
-}
-</style>
-<title>PClock Control - Settings</title>
-<body>
-<div class="center">
-<h1 class="redt">PClock Control - Settings</h1>
-
-<div class="redt" >This page is a work in progress.</div>
-
-</div>
-<script>
-function loadDoc(type, value) {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange=function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("response").innerHTML = "Response: " + this.responseText;
-    }
-  };
-  xhttp.open("GET", "/api?" + type +  "=" + value, true);
-  xhttp.send();
-}
-</script>
-
-</body>
-</html>
-)=====";
-
 void handleRoot() {
  //Serial.println("You called root page");
  String s = MAIN_page; //Read HTML contents
- server.send(200, "text/html", s); //Send web page
-}
-
-void handleSettings() {
- //Serial.println("You called root page");
- String s = Settings_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
 }
 
@@ -785,7 +739,6 @@ void setup()
   Serial.println("Time...");
 
   server.on("/", handleRoot);
-  server.on("/settings", handleSettings);
   server.onNotFound(handleNotFound);
   server.on("/api", handleSpecificArg);   //Associate the handler function to the path
 
@@ -855,10 +808,15 @@ if (AutoBright) {
         current_state = OFF;
       }
       else if (millis() - countdownMs > LightLTimeout) {
-        Brightness = AutoBrightBrightness;
-        Mode = AutoBrightMode;
-        //Serial.print("dark");
-        current_state = ON;
+        if (AutoBrightTodo == "CM"){
+          Brightness = AutoBrightBrightness;
+          Mode = AutoBrightMode;
+          //Serial.print("dark");
+          current_state = ON;
+        } else if (AutoBrightTodo == "DO") {
+          Status = "OFF";
+          current_state = ON;
+        }
       }
       else {
         // do nothing
@@ -867,10 +825,15 @@ if (AutoBright) {
 
     case ON:
       if (isLightAboveThreshhold()) {
-        Brightness = 255;
-        Mode = "TDW";
-        //Serial.print("bright");
-        current_state = OFF;
+        if (AutoBrightTodo == "CM"){
+          Brightness = 255;
+          Mode = "TDW";
+          //Serial.print("bright");
+          current_state = OFF;
+       } else if (AutoBrightTodo == "DO") {
+          Status = "ON";
+          current_state = OFF;
+       }
       }
       else {
         // do nothing
